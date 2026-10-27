@@ -9,23 +9,14 @@
     "python": "3.14.8"
   },
   "git": {
-    "commit": "4370dcc59cd0f2b3bfd85e3435c02f929ca49c65",
+    "commit": "d23c4ec0f59587e98296e5942778d125baff62c3",
     "dirty": true,
     "dirty_paths": [
       "M ARTICLE.md",
-      " M EVIDENCE.md",
-      " M LIMITATIONS.md",
-      " M METHODOLOGY.md",
-      " M README.md",
-      " M REPRODUCTION.md",
-      " M data/claims.json",
-      " M results/mtp_ab.csv",
-      " M results/mtp_blocks.csv",
-      " M results/mtp_comparison.csv",
-      " M results/mtp_runs.csv",
-      " M scripts/build_results.py",
-      " M scripts/check_traceability.py",
-      " M tests/fixture.py"
+      " M HARDWARE-AND-RUNTIME.md",
+      " M figures/fig_prefill_vs_ctx.png",
+      " M scripts/make_figures.py",
+      " M tests/test_markdown.py"
     ]
   },
   "inputs": {
@@ -104,7 +95,7 @@
     "figures/fig_mtp_ab.png": "9d865b368541119d2934bb995dd644566fc26d480795144fe49a9bbc4dd26bef",
     "figures/fig_mtp_runs.png": "5adff0155e9ba34e920645f6d5b8924c86e89ec9b876148b47f1bc24ce48a2fa",
     "figures/fig_overview.png": "dfe8a60008f9603ca8908ebc52794f671a54c3f3c59e3977cdcaa1547a89b98e",
-    "figures/fig_prefill_vs_ctx.png": "a67d1dd5de5b52cd17eff4833f21ccd4872ff68d792f147ff9ab877b1318eae4",
+    "figures/fig_prefill_vs_ctx.png": "0844e4b2f5f0a88fdf41590fea55c9654916ee6141318ec8d983014f3abe6ddd",
     "figures/fig_setup.svg": "00c38ed144ee502bb4c0cf835d62648588e39cc88395517fbeef3db8c5250d76",
     "results/coding_eval.csv": "2ebb1250a0cb05c130021f8a9a329f7feb56d917a2c94eeb2b915046656bbc0c",
     "results/coding_overall.csv": "a4bc5ae248759ad9978ce24a90fecf80e800d068e3c5a8c7269ec7fc9942f7a9",

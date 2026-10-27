@@ -130,7 +130,7 @@ def fig_prefill_vs_ctx():
     ax.set_xscale("log", base=2); ax.set_xticks(xs)
     ax.set_xticklabels([f"{int(x)}k" for x in xs])
     ax.set_xlabel("context (tokens)"); ax.set_ylabel("prefill PP (t/s)")
-    ax.set_title("Prefill throughput vs context (expert cache on)")
+    ax.set_title("Prefill throughput vs context (sibling ledger)")
     fig.tight_layout(); fig.savefig(FIG / "fig_prefill_vs_ctx.png", dpi=150)
     plt.close(fig)
 

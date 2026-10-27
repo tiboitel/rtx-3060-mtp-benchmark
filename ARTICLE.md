@@ -171,7 +171,7 @@ When expert layers are kept on the CPU, the serving path has to access those exp
 | `ncmoe=20`, cache soft | 313.2 t/s |
 | `ncmoe=20`, cache on | **<!-- claim:cache_on -->775.7<!-- /claim --> t/s** |
 
-The three 1k rows share the context length and `ncmoe=20`; the bench ledger does not record the prompt text or sampling settings, so this is a configuration comparison rather than a fully traced A/B.
+The three 1k rows share the context length and `ncmoe=20`. The ledger's provenance also fixes the sibling checkpoint and quantization (`Qwen3.6-28B-REAP20-A3B-Q4_K_M`) and the runtime revision (`bcb85fc`). What the ledger does **not** record is the prompt text or token count, sampling settings, batch size, warm-up count, number of repetitions, or the measurement method. This is therefore a configuration comparison, not a controlled causal A/B: the cache is the named difference, but the comparison does not isolate its effect from those uncontrolled conditions.
 
 ![Bar chart of the expert-cache effect on prefill](figures/fig_moe_cache.png)
 
@@ -196,16 +196,18 @@ On the 28B benchmark sibling:
 | 64k | 712 t/s |
 | 128k | <109 t/s |
 
+The 64k row is identified in the ledger as `ncmoe=18` with the expert cache on. The 1k and 128k rows carry no per-row configuration, prompt, or measurement-method record, so the three points are not a matched configuration series; they are context points drawn from one ledger section.
+
 ![Line chart of prefill throughput versus context length](figures/fig_prefill_vs_ctx.png)
 
 **Figure 4 — Prefill throughput vs context.**
-*Data: [prefill_vs_ctx.csv](results/prefill_vs_ctx.csv) · source rows: [data/sources-bench.json](data/sources-bench.json) §06 · supporting track: 28B benchmark sibling. The 64k no-cache point is a timeout upper bound rather than a completed measurement.*
+*Data: [prefill_vs_ctx.csv](results/prefill_vs_ctx.csv) · source rows: [data/sources-bench.json](data/sources-bench.json) §06 · supporting track: 28B benchmark sibling. The 128k point is an upper bound (<109 t/s), not a completed measurement, and the points are not a matched configuration series.*
 
 Two constraints become visible here.
 
 First, the cache needs spare VRAM. It reserves memory adaptively, so a configuration with insufficient headroom cannot simply enable it.
 
-Second, context length itself becomes increasingly expensive during prefill. The 128k measurement is particularly slow even though the sibling configuration can fit the context.
+Second, context length itself becomes increasingly expensive during prefill. Prompt processing at 128k is particularly slow (a recorded upper bound, not a completed run), even though the sibling ledger records a 128k configuration that fits — a bench capture, not a live measurement.
 
 The practical consequence is that **memory capacity and prefill throughput have to be considered together**.
 
@@ -372,17 +374,17 @@ Configurations close to the VRAM limit deserve particular caution. A configurati
 
 ## VII. Recommended configurations
 
-The measurements suggest three practical profiles.
+The measurements identify one profile supported by a direct live-29B A/B and two profiles supported only by the 28B benchmark sibling. Only the first is a live-model measurement. The other two are starting points for evaluation, not validated performance predictions for the live 29B configuration.
 
-| Profile | Context | Key settings | Measured result | Track |
+| Profile | Context | Key settings | Measured result | Evidence status |
 |---|---:|---|---|---|
-| **Agent default** | 64k | MTP on, expert cache on, `ncmoe=20` | 38.6 t/s decode, 637 t/s prefill, 11,588 MiB peak | Primary 29B |
-| **Prefill-first** | 64k | Expert cache on | 308.5 → 775.7 t/s at 1k | Supporting 28B |
-| **Maximum context** | 128k | Deeper CPU offload | Prefill below 109 t/s | Supporting 28B; not validated on live 29B |
+| **Agent default** | 64k | MTP on, expert cache on, `ncmoe=20` | 38.56 t/s decode, 637.4 t/s prefill, 11,588 MiB peak | Primary 29B; n=10/arm, blocked A/B |
+| **Prefill-first** | 1k / 64k | Expert cache on | 1k: 308.5 → 775.7 t/s; 64k: 676.9–712.2 t/s | Supporting 28B; 1k not a traced A/B; 64k rows not matched |
+| **128k (experimental)** | 128k | Bench-sibling config (offload not recorded) | Prefill upper bound below 109 t/s | Supporting 28B only; not validated on live 29B |
 
-### A. Agent default
+### A. Agent default — 64k
 
-**64k context · MTP · expert cache on**
+**Status: Measured on the live 29B configuration** — 10 kept requests per arm, two blocks in reversed order, ~57.9k-token prompts, cold prefill on every retained request, one MTP draft budget (two tokens).
 
 ```text
 -c 65536
@@ -394,46 +396,50 @@ The measurements suggest three practical profiles.
 
 This is the best-fitting configuration found for the live 29B profile:
 
-- deep decode: **38.6 t/s**
-- prefill: **637 t/s**
-- peak VRAM: **11,588 MiB**
-- additional peak host RAM for the draft context: approximately **1.7 GiB** (difference of observed maxima)
+- deep decode: **38.56 t/s** mean (SD 6.28 t/s) on the MTP-on arm, against 14.79 t/s (SD 1.20 t/s) on the MTP-off arm; estimated difference **+23.77 t/s**, request-level unpaired nominal 95% CI [19.19, 28.34] assuming independent requests ([Section V.B](#b-difference-interval));
+- prefill: **637.4 t/s** mean (SD 6.21 t/s), against 645.1 t/s (SD 6.34 t/s) on the MTP-off arm;
+- peak VRAM: **11,588 MiB** of the GPU's nominal 12,288 MiB (94.3%), leaving 700 MiB (5.7%) of headroom;
+- additional peak host RAM for the draft context: approximately **1.7 GiB** (difference of observed maxima).
 
-It is most appropriate for workloads that process long context and generate comparatively short responses.
+The tested workload is a long input dominated by prefill: about 90 s of prompt processing against 3–7 s of decode for 105–123 generated tokens. These results evidence this configuration for long-input, modest-output requests on the tested host. They do not establish that the profile is optimal for other output lengths, that two draft tokens is the best budget, or that the configuration remains robust under different prompts, system load, or additional GPU consumers. Decode throughput is a per-phase measure; the MTP-on arm's mean end-to-end wall time was about 3% lower, a descriptive difference this study does not test for significance ([Section V.A](#a-results)).
 
-### B. Prefill-first
+### B. Prefill-first — expert cache enabled
 
-**Keep the expert cache enabled.**
+**Status: Supporting evidence from the 28B benchmark sibling** — not a live 29B result.
 
-The recorded sibling measurement showed approximately **2.5×** higher prefill with the cache enabled at 1k context:
+At 1k context with `ncmoe=20`, the recorded comparison increased prefill from **308.5 to 775.7 t/s** (about 2.51×); the cache in `soft` mode reached 313.2 t/s. As noted in [Section IV.A](#a-optimization-of-prefill), the ledger does not record the prompt text, sampling, warm-up count, repetitions, or measurement method. This is a configuration comparison rather than a controlled A/B, and the 1k result does not estimate the effect at 64k.
 
-```text
-308.5 t/s → 775.7 t/s
-```
+At 64k, the cache-on rows reached **676.9 t/s** (`ncmoe=20`) and **712.2 t/s** (`ncmoe=18`). The `ncmoe=20` cache-off row **timed out** with a recorded rate below **73 t/s**, an upper bound rather than a completed throughput measurement; a separate `ncmoe=16` cache-off server-method run completed at **353.4 t/s**. Those rows differ in offload setting and method, so they are not a matched cache-on/cache-off comparison.
 
-At 64k, the cache-off sibling configuration timed out with a prefill rate below 73 t/s, while cache-enabled configurations reached approximately 677–712 t/s depending on the tested configuration.
+The direction supports keeping the expert cache enabled and evaluating it further on the live model. It does not establish the same improvement on the live 29B configuration, nor a 2.5× gain at 64k.
 
-The cache comparison is on the 28B sibling, so this should be treated as supporting evidence rather than a 29B A/B result.
+### C. 128k (experimental)
 
-### C. Maximum context
+**Status: Experimental — 28B benchmark sibling only; not validated on the live 29B configuration.**
 
-**128k requires validation before adoption.**
+The sibling ledger reports a 128k prefill point **below 109 t/s**, recorded as an upper bound rather than a completed measurement. No full-context run is published: time to first token, decode throughput after a 128k prefill, retrieval from early, middle, and late context, peak memory during inference, and repeatability were not measured. A bench-sibling capture in the host record puts 128k peak VRAM near 10.7 GiB, but it is not reconciled with the throughput point and is not a live 29B measurement; no 128k VRAM figure is recommended here.
 
-The 28B sibling measurements indicate that a 128k context can fit with deeper CPU offload (~9.9 GiB), but prefill falls below 109 t/s.
-
-That may be acceptable for a workload that reads very deep context and generates little output. It is a poor trade for workloads that repeatedly prefill large documents.
-
-The 128k result was **not validated on the live 29B MTP profile**.
+The recorded point is consistent with a capacity-versus-prefill trade: a 128k context that the bench sibling can accommodate, at a prompt-processing rate below 109 t/s. Whether that trade is acceptable depends on end-to-end latency requirements, prompt reuse (prefix caching was not tested), and output length. This profile should remain experimental until it is measured on the live 29B configuration.
 
 ## VIII. Limitations
 
-This is a single-machine engineering study.
+This is a single-machine engineering study. The primary experiment covers one 29B-class model, one RTX 3060 12 GB, one host CPU and memory configuration, one runtime build, one 64k context, one long-prompt family, and one tested MTP draft budget (two tokens). The supporting cache, depth-0 and context experiments use a 28B benchmark sibling.
 
-The primary experiment covers one 29B-class model, one RTX 3060 12 GB, one host CPU and memory configuration, one runtime build, one 64k context, one long-prompt family, and one tested MTP draft budget (two tokens). The supporting cache, depth-0 and context experiments use a 28B benchmark sibling.
+The main threats to validity, and what each one changes about the interpretation:
+
+| Threat | Effect on interpretation |
+|---|---|
+| Single host (CPU, RAM bandwidth, PCIe, GPU model) | Magnitudes may move substantially on another platform; the directions are hypotheses. |
+| 29B primary, 28B sibling support | The cache and context results in [Section IV](#iv-expert-cache-and-prefill) are not measurements of the live model and may not transfer to it. |
+| One long-prompt family (~58k tokens with a needle) | Prefill and MTP acceptance are content-dependent; a different corpus can move both the mean and the variance. |
+| One MTP draft budget (two tokens) | The study does not establish that two drafts is optimal, or how another budget trades speed against VRAM. |
+| One runtime build (`bcb85fc`) | Kernels, schedulers and cache implementations are revision-specific, so both the mean and the tail can move. |
+| Two server starts per arm | The published interval assumes independent requests; within-phase correlation would make it too narrow, and a block-clustered interval is not estimable. |
+| Private runner and harness; one task suite | The measured runs cannot be independently reproduced from a clone, and coding completion does not establish general coding ability. |
 
 The study therefore establishes **configuration-specific measurements**, not general performance laws. In particular, it does not establish how these results transfer to other GPUs, other MoE models, other runtimes or other prompt families; whether the two-token draft budget is optimal; whether 128k is practical on the live 29B configuration; or whether throughput predicts coding-task correctness.
 
-The full boundary of the claims is documented in [LIMITATIONS.md](LIMITATIONS.md).
+These results should be treated as configuration-specific observations under the stated hardware, model, runtime, and workload conditions. They are not independently reproducible and are not general performance guarantees. The full boundary of the claims is documented in [LIMITATIONS.md](LIMITATIONS.md).
 
 ## IX. Conclusion
 

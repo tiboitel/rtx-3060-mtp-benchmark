@@ -15,7 +15,7 @@ class MarkdownRenderingTests(unittest.TestCase):
     def test_fenced_blocks_are_balanced(self):
         fences = self.text.count("```")
         self.assertEqual(fences % 2, 0, "unbalanced triple-backtick fences")
-        self.assertGreaterEqual(fences, 14)
+        self.assertGreaterEqual(fences, 12)
 
     def test_section_structure_is_roman_and_lettered(self):
         headings = [
