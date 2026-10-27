@@ -78,7 +78,7 @@ Full hardware/runtime details: [HARDWARE-AND-RUNTIME.md](HARDWARE-AND-RUNTIME.md
 
 ![Three measured levers](figures/fig_overview.png)
 
-*Only the MTP panel is the live 29B profile; expert cache and depth-0 comparisons use the 28B bench sibling.*
+*Data: [mtp_ab.csv](results/mtp_ab.csv) · [deep_vs_depth0.csv](results/deep_vs_depth0.csv) · [moe_cache.csv](results/moe_cache.csv). Only the MTP panel is the live 29B profile; expert cache and depth-0 comparisons use the 28B bench sibling.*
 
 ## How reliable and generalizable is this?
 
