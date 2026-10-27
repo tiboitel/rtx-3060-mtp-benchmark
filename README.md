@@ -16,7 +16,7 @@ This benchmark documents a **specific configuration**, not a universal MTP speed
 | Observed peak host RAM | Baseline | Higher | **~+1.7 GiB** *(difference of maxima)* |
 | Per-request draft-token acceptance | — | 0.838 (SD 0.070) | — |
 
-**Test setup:** NVIDIA RTX 3060 12GB, Intel i7-9700K, 32GB system RAM, `Qwen3.6-29B-REAP-Opus-Reasoning-Distill-MTP` (Q4_K_M, ~29B-class MoE), 65,536-token context limit, ~57.9k-token prompts, and `llama.cpp` build `bcb85fc`. MTP configured with `--spec-type draft-mtp --spec-draft-n-max 2`. See [full configuration details](#tested-configuration) below.
+**Test setup:** NVIDIA RTX 3060 12GB, Intel i7-9700K, 32GB system RAM, `Qwen3.6-29B-REAP-Opus-Reasoning-Distill-MTP` (Q4_K_M, ~29B-class MoE), 65,536-token context limit, ~57.9k-token prompts, and `llama.cpp` build `bcb85fc`. MTP configured with `--spec-type draft-mtp --spec-draft-n-max 2`. See [full configuration details](#what-hardware-model-and-settings-were-used) below.
 
 ![MTP on/off at 64k](figures/fig_mtp_ab.png)
 
