@@ -1,4 +1,4 @@
-# RTX 3060 12GB MTP Benchmark: +160.7% LLM Decode Speedup at 64K Context
+# RTX 3060 12GB MTP Benchmark: +160.7% LLM Decode Speedup at 64k Context
 
 **Does multi-token prediction (MTP) make local LLM inference faster on an NVIDIA RTX 3060 12GB?** In one measured long-context configuration, yes: enabling MTP increased deep-context decode throughput from **14.79 to 38.56 tokens/s (+160.7%)** when serving a 29B-class mixture-of-experts model at a 64k context limit.
 
@@ -24,13 +24,21 @@ This benchmark documents a **specific configuration**, not a universal MTP speed
 
 **[Read the full research article →](ARTICLE.md)**
 
+## Headline findings
+
+| # | Finding | Configuration | Cost / caveat | Evidence |
+|---|---|---|---|---|
+| 1 | **MTP more than doubles deep-context decode at 64k in the documented shared configuration: 14.79 → 38.56 t/s (+160.7%)**, while prefill changes by −1.19%, below the ~4% operational noise threshold. | Live 29B MTP profile, 10 runs/arm, ~57.9k prompt; identical shared serving settings, different speculative-decoding configuration | **+993 MiB peak VRAM**, ~1.7 GiB peak host RAM (difference of observed maxima); not REPRODUCIBLE (private runner) | **MEASURED + REGENERATED** — [mtp_ab.csv](results/mtp_ab.csv) |
+| 2 | **Depth-0 `llama-bench` measures 46.0 t/s, but only ~15 t/s once a long prompt in a 64k-context configuration is in front of it (~3× in this comparison).** Depth-0 is a valid baseline for model-only generation; it does not capture the long-context request path. | Both rows are 28B bench-sibling measurements; the deep row is a server request, not the live 29B profile | Different configs within the sibling; this is a measured gap, not a universal ratio | **MEASURED (sibling)** — [deep_vs_depth0.csv](results/deep_vs_depth0.csv) |
+| 3 | **The MoE expert cache is the prefill lever: 308 → 776 t/s (~2.5×) in the short-context comparison.** At 64k, cache-off prefill collapses below 73 t/s, versus ~677–712 t/s with the cache on. | 28B bench sibling, 1k comparison; prompt/sampling not recorded; 64k rows are sibling measurements | Spends spare VRAM; deep decode stays ~14–15 t/s; 64k no-cache is a timeout upper bound | **MEASURED (sibling) + REGENERATED** — [moe_cache.csv](results/moe_cache.csv) |
+
 ## How much extra VRAM does MTP use?
 
 MTP adds **993 MiB of peak GPU memory** on this configuration (10,595 MiB → 11,588 MiB). For a 12 GB card with ~12,288 MiB total, this leaves meaningful headroom in this test, but it's a real cost to plan for. Host RAM also increases by roughly 1.7 GiB at peak (measured as difference of observed maxima).
 
 ![Tested serving path and memory split](figures/fig_setup.svg)
 
-*VRAM is the binding constraint for 64k context on this hardware — the KV cache is VRAM-resident, so host RAM does not scale with context length.*
+*Schematic: VRAM is the binding constraint for 64k context on this hardware — the KV cache is VRAM-resident, so host RAM does not scale with context length.*
 
 ## What hardware, model, and settings were used?
 
